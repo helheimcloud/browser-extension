@@ -25,3 +25,6 @@ package-lock.json
 chrome/
 firefox/
 winehq.key
+chrome.dev.pem
+chrome.dev.crx
+sample.html
