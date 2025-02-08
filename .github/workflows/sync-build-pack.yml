@@ -49,9 +49,10 @@ jobs:
     # Create ZIP files
     - name: Create ZIP files
       run: |
-        cd chrome.dev && zip -r clockify-chrome.zip .
-        cd firefox.dev && zip -r clockify-firefox.zip .
+        cd chrome.dev && zip -r clockify-chrome.zip . && cd ..
+        cd firefox.dev && zip -r clockify-firefox.zip . && cd ..
         
+
     # Create Release
     - name: Create Release
       uses: softprops/action-gh-release@v1
