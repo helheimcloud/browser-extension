@@ -1,0 +1,68 @@
+name: Sync, Build and Pack Extension
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight
+  workflow_dispatch:      # Allows manual trigger
+  push:
+    branches: [ main ]    # Runs on pushes to main
+
+jobs:
+  sync-build-pack:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0    # Fetch all history for all branches and tags
+    
+    # Setup Node.js
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        
+    # Sync with upstream
+    - name: Add upstream remote
+      run: |
+        git remote add upstream https://github.com/clockify/browser-extension.git
+        git fetch upstream
+        
+    - name: Merge upstream changes
+      run: |
+        git checkout main
+        git merge upstream/master --no-edit
+        git push origin main
+      continue-on-error: true    # Continue even if there are merge conflicts
+        
+    # Install dependencies
+    - name: Install dependencies
+      run: npm install --legacy-peer-deps
+        
+    # Build extension
+    - name: Build Chrome extension
+      run: npm run compile.dev.chrome
+        
+    - name: Build Firefox extension
+      run: npm run compile.dev.firefox
+        
+    # Create ZIP files
+    - name: Create ZIP files
+      run: |
+        cd www/chrome.dev && zip -r ../../clockify-chrome.zip .
+        cd ../firefox.dev && zip -r ../../clockify-firefox.zip .
+        
+    # Create Release
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: github.event_name != 'schedule'  # Don't create release on scheduled runs
+      with:
+        files: |
+          clockify-chrome.zip
+          clockify-firefox.zip
+        tag_name: v${{ github.run_number }}
+        name: Build ${{ github.run_number }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
