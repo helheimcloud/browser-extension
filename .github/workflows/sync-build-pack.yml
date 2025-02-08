@@ -41,10 +41,10 @@ jobs:
         
     # Build extension
     - name: Build Chrome extension
-      run: npm run compile.dev.chrome
+      run: npm run compile.dev.chrome.nowatch
         
     - name: Build Firefox extension
-      run: npm run compile.dev.firefox
+      run: npm run compile.dev.firefox.nowatch
         
     # Create ZIP files
     - name: Create ZIP files
