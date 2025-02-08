@@ -41,18 +41,17 @@ jobs:
         
     # Build extension
     - name: Build Chrome extension
-      run: npm run compile.dev.chrome.nowatch
+      run: npm run compile.prod.chrome.nowatch
         
     - name: Build Firefox extension
-      run: npm run compile.dev.firefox.nowatch
+      run: npm run compile.prod.firefox.nowatch
         
     # Create ZIP files
     - name: Create ZIP files
       run: |
-        cd chrome.dev && zip -r clockify-chrome.zip . && cd ..
-        cd firefox.dev && zip -r clockify-firefox.zip . && cd ..
+        cd chrome && zip -r clockify-chrome.zip . && cd ..
+        cd firefox && zip -r clockify-firefox.zip . && cd ..
         
-
     # Create Release
     - name: Create Release
       uses: softprops/action-gh-release@v1
