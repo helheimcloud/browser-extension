@@ -1,46 +1,3 @@
-// On premise installation
-clockifyButton.render(
-	'.requestEditbrsty:not(.clockify)',
-	{ observe: true },
-	function (elem) {
-		const description = $('#requestSubject_ID', elem).textContent;
-		const project = 'Tickets to be Allocated';
-		const ticketId = $('#requestId', elem).textContent;
-		const clockifyCell = document.createElement('td');
-
-		const link = clockifyButton.createButton(
-			ticketId + ' : ' + description,
-			project
-		);
-
-		clockifyCell.appendChild(link);
-
-		$('td#startListMenuItems > table > tbody > tr').appendChild(clockifyCell);
-	}
-);
-
-// Cloud version
-clockifyButton.render(
-	'#WorkOrderDetailsTable_CT:not(.clockify)',
-	{ observe: true },
-	function (elem) {
-		const description = $('#details-middle-container h1', elem).textContent;
-		const projectElem = $('#projectholder p') || {};
-		const project = projectElem.textContent;
-		const ticketId = $('#reqid', elem).textContent;
-		const clockifyCell = document.createElement('li');
-
-		const link = clockifyButton.createButton(
-			ticketId + ': ' + description,
-			project
-		);
-
-		clockifyCell.appendChild(link);
-
-		$('#details-middle-container ul.reply-actions').appendChild(clockifyCell);
-	}
-);
-
 // ManageEngine ServiceDesk Plus integration
 clockifyButton.render(
 	'#WOHeader:not(.clockify), #WorkOrderDetailsTable_CT:not(.clockify), #ViewWO:not(.clockify)',
@@ -48,6 +5,15 @@ clockifyButton.render(
 	function (elem) {
 		// prevent duplicate button inject
 		if (elem.querySelector('.clockify-button-group')) return;
+
+		// Hide default timer button
+		const style = document.createElement('style');
+		style.textContent = `
+			[data-cs-field="worklog_timers"] {
+				display: none !important;
+			}
+		`;
+		document.head.appendChild(style);
 
 		// Extract ticket ID from page or URL
 		const requestId = document.querySelector('#request-id')?.textContent.match(/\d+/)?.[0] ||
@@ -71,62 +37,65 @@ clockifyButton.render(
 		let link;       // Timer button reference
 		let dropdownButton; // Template selector reference
 
-		// Init mutation observer for dynamic content, needed because of SDP sometimes lazyloads stuff
-		// https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
-		const contentObserver = new MutationObserver((mutations) => {
-			// Check if buttons should be injected
-			const shouldInject = !document.querySelector('.clockify-button-group') && 
-							   document.querySelector('#WOHeader, #WorkOrderDetailsTable_CT, #ViewWO');
-			if (shouldInject) {
-				injectButtons();
-			}
-		});
+		// Add a debounce timer variable before the observer
+		let observerTimer;
+		let retryCount = 0;
+		const MAX_RETRIES = 5;
+		const RETRY_DELAYS = [100, 500, 1000, 2000, 3000]; // Increasing delays
 
-		// Start observing DOM changes
-		contentObserver.observe(document.body, {
-			childList: true,
-			subtree: true
-		});
-
-		// Button inject handler
+		// Button inject handler with retry logic
 		const injectButtons = () => {
 			// Get parent container for button inject
 			const parentContainer = document.querySelector('#actionsBar .btn-group')?.parentElement;
-			if (!parentContainer || parentContainer.querySelector('.clockify-button-group')) return;
+			if (!parentContainer || parentContainer.querySelector('.clockify-button-group')) {
+				if (retryCount < MAX_RETRIES) {
+					setTimeout(() => {
+						retryCount++;
+						injectButtons();
+					}, RETRY_DELAYS[retryCount]);
+					return;
+				}
+				return;
+			}
 
-			// Init search button component
-			const createSearchButton = () => {
-				const searchButton = document.createElement('button');
-				searchButton.type = 'button';
-				searchButton.className = 'btn btn-default btn-xs';
-				searchButton.style.cssText = 'margin-left: 5px !important; order: 2 !important;';
-				searchButton.innerHTML = `
-					<svg viewBox="0 0 24 24" role="img" aria-label="Search" style="width: 16px; height: 16px; margin-right: 5px; vertical-align: text-bottom;">
-						<g>
-							<path style="fill:none;stroke:currentColor;stroke-miterlimit:10;stroke-width:1.6px" d="M10.58,2.82a8.18,8.18,0,0,1,8.25,8.1A8.18,8.18,0,0,1,10.58,19a8.18,8.18,0,0,1-8.24-8.11A8.17,8.17,0,0,1,10.58,2.82Z">
-							</path>
-							<line style="fill:none;stroke:currentColor;stroke-miterlimit:10;stroke-width:1.6px" x1="15.85" y1="16.41" x2="20.34" y2="20.82"></line>
-						</g>
-					</svg>
-					#${requestId} on Clockify
-				`;
-				
-				// Config date range for search
-				const startDate = new Date(new Date().getFullYear(), 0, 1);
-				const endDate = new Date();
-				
-				// Config search URL and click handler
-				searchButton.onclick = () => {
-					const searchUrl = `https://oh22.clockify.me/reports/detailed?` + 
-						`start=${startDate.toISOString()}&` +
-						`end=${endDate.toISOString()}&` +
-						`description=%23${requestId}&` +
-						`page=1&pageSize=50`;
-					window.open(searchUrl, '_blank');
-				};
+			// Reset retry count on successful container find
+			retryCount = 0;
 
-				return searchButton;
+			// Init search button component and inject it into the right wrapper
+			const searchButton = document.createElement('button');
+			searchButton.type = 'button';
+			searchButton.className = 'btn btn-default btn-xs clockify-search-button';
+			searchButton.style.cssText = 'margin: 10px !important; display: inline-block !important; float: right !important;';
+			searchButton.innerHTML = `
+				<svg viewBox="0 0 24 24" role="img" aria-label="Search" style="width: 16px; height: 16px; margin-right: 5px; vertical-align: text-bottom;">
+					<g>
+						<path style="fill:none;stroke:currentColor;stroke-miterlimit:10;stroke-width:1.6px" d="M10.58,2.82a8.18,8.18,0,0,1,8.25,8.1A8.18,8.18,0,0,1,10.58,19a8.18,8.18,0,0,1-8.24-8.11A8.17,8.17,0,0,1,10.58,2.82Z">
+						</path>
+						<line style="fill:none;stroke:currentColor;stroke-miterlimit:10;stroke-width:1.6px" x1="15.85" y1="16.41" x2="20.34" y2="20.82"></line>
+					</g>
+				</svg>
+				#${requestId} on Clockify
+			`;
+			
+			// Config date range for search
+			const startDate = new Date(new Date().getFullYear(), 0, 1);
+			const endDate = new Date();
+			
+			// Config search URL and click handler
+			searchButton.onclick = () => {
+				const searchUrl = `https://oh22.clockify.me/reports/detailed?` + 
+					`start=${startDate.toISOString()}&` +
+					`end=${endDate.toISOString()}&` +
+					`description=%23${requestId}&` +
+					`page=1&pageSize=50`;
+				window.open(searchUrl, '_blank');
 			};
+
+			// Find the right wrapper and inject the search button
+			const rightWrapper = document.querySelector('.right.pos-rel.p0[id^="wrapper_Request_"]');
+			if (rightWrapper) {
+				rightWrapper.appendChild(searchButton);
+			}
 
 			// Templates for time entries
 			const getTemplates = (comment) => ({
@@ -140,7 +109,7 @@ clockifyButton.render(
 					'Outbound Call': `Reached out to ${requesterName} regarding the request "${description}". ${comment} #${requestId}`,
 					'Vulnerability Mitigation': `Addressed vulnerability "${description}". ${comment} #${requestId}`,
 					'Project Effort': `Work effort on Project "${description}". ${comment} #${requestId}`,
-					'Empty Template': `${description} #${requestId}`,
+					'Empty Template': `#${requestId}`,
 					'Close Comment': `${comment} #${requestId}`
 				},
 				DE: {
@@ -153,7 +122,7 @@ clockifyButton.render(
 					'Outbound Call (DE)': `${requesterName} bezüglich der Anfrage "${description}" telefonisch kontaktiert. ${comment} #${requestId}`,
 					'Vulnerability Mitigation (DE)': `Schwachstelle "${description}" behoben. ${comment} #${requestId}`,
 					'Project Effort (DE)': `Arbeitsaufwand am Projekt "${description}". ${comment} #${requestId}`,
-					'Empty Template': `${description} #${requestId}`,
+					'Empty Template': `#${requestId}`,
 					'Close Comment': `${comment} #${requestId}`
 				}
 			});
@@ -274,32 +243,103 @@ clockifyButton.render(
 				display: inline-block !important;
 				justify-content: flex-end !important;
 				position: absolute !important;
-				right: 20px !important;
+				right: 0px !important;
 			`;
 
 			// Init timer button
 			link = clockifyButton.createButton(defaultTimerDescription, 'Tickets to be Allocated');
 			link.className = 'btn btn-xs btn-default';
 
-			// Init search button
-			const searchButton = createSearchButton();
-
-			// Component order
+			// Component order - moving everything into the buttonGroup
 			dropdownGroup.appendChild(langButton);
 			dropdownGroup.appendChild(dropdownButton);
 			dropdownGroup.appendChild(dropdownMenu);
-			buttonGroup.appendChild(link);
-			buttonGroup.appendChild(searchButton);
 			inputGroup.appendChild(input);
+			buttonGroup.appendChild(dropdownGroup);
+			buttonGroup.appendChild(inputGroup);
+			buttonGroup.appendChild(link);
 
 			// Inject components into DOM
-			parentContainer.appendChild(dropdownGroup);
-			parentContainer.appendChild(inputGroup);
 			parentContainer.appendChild(buttonGroup);
 		};
 
-		// Init button inject
-		injectButtons();
+		// Init mutation observer for dynamic content, needed because of SDP sometimes lazyloads stuff
+		const contentObserver = new MutationObserver((mutations) => {
+			clearTimeout(observerTimer);
+			observerTimer = setTimeout(() => {
+				// Check if buttons should be injected
+				const shouldInject = !document.querySelector('.clockify-button-group') && 
+								   document.querySelector('#WOHeader, #WorkOrderDetailsTable_CT, #ViewWO');
+				if (shouldInject) {
+					retryCount = 0; // Reset retry count for fresh injection attempt
+					injectButtons();
+				}
+
+				// Handle ticket ID updates during lazyloading
+				const newRequestId = document.querySelector('#request-id')?.textContent.match(/\d+/)?.[0] ||
+								   document.querySelector('#reqid')?.textContent?.match(/\d+/)?.[0] ||
+								   window.location.href.match(/woID=(\d+)/)?.[1];
+
+				if (newRequestId && newRequestId !== requestId) {
+					// Update search button with new ticket ID
+					const searchButton = document.querySelector('.clockify-search-button');
+					if (searchButton) {
+						const startDate = new Date(new Date().getFullYear(), 0, 1);
+						const endDate = new Date();
+						
+						searchButton.innerHTML = searchButton.innerHTML.replace(/#\d+ on Clockify/, `#${newRequestId} on Clockify`);
+						searchButton.onclick = () => {
+							const searchUrl = `https://oh22.clockify.me/reports/detailed?` + 
+								`start=${startDate.toISOString()}&` +
+								`end=${endDate.toISOString()}&` +
+								`description=%23${newRequestId}&` +
+								`page=1&pageSize=50`;
+							window.open(searchUrl, '_blank');
+						};
+					}
+				}
+			}, 500); // increased debounce delay to 500ms
+		});
+
+		// Start observing DOM changes - always observe document.body
+		const observeTarget = document.body;
+		contentObserver.observe(observeTarget, {
+			childList: true,
+			subtree: true
+		});
+
+		// Function to handle initial injection with proper timing
+		const initializeInjection = () => {
+			// Reset retry count for fresh start
+			retryCount = 0;
+			
+			// Try immediate injection
+			injectButtons();
+
+			// Schedule additional attempts with increasing delays
+			RETRY_DELAYS.forEach((delay, index) => {
+				setTimeout(() => {
+					if (!document.querySelector('.clockify-button-group')) {
+						retryCount = index;
+						injectButtons();
+					}
+				}, delay);
+			});
+		};
+
+		// Handle both immediate and deferred initialization
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', initializeInjection);
+		} else {
+			initializeInjection();
+		}
+
+		// Additional safety net for SPA navigation
+		window.addEventListener('load', () => {
+			if (!document.querySelector('.clockify-button-group')) {
+				initializeInjection();
+			}
+		});
 	}
 );
 
