@@ -12,6 +12,22 @@ clockifyButton.render(
 			[data-cs-field="worklog_timers"] {
 				display: none !important;
 			}
+
+			/* Custom popup positioning and styling */
+			.clockify-integration-popup {
+				position: fixed !important;
+				left:50% !important;
+				top: 20% !important;
+				width: 400px !important;
+				z-index: 999999 !important;
+				transform: translateX(-50%) scale(1.1) !important;
+				transform-origin: center top !important;
+			}
+
+			.clockify-integration-popup .edit-form-description {
+				height: 225px !important;
+				min-height: 225px !important;
+			}
 		`;
 		document.head.appendChild(style);
 
